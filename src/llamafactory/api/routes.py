@@ -381,7 +381,7 @@ async def start_train(params: dict[str, Any], engine_holder: EngineHolderDep):
 async def abort_train(engine_holder: EngineHolderDep):
     r"""Abort the current training run."""
     if not engine_holder.is_training:
-        _error("No training or evaluation run in progress.", status.HTTP_409_CONFLICT)
+        return _success(None, "No training or evaluation run in progress.")
     engine_holder.runner.set_abort()
     return _success(None, "Training aborted.")
 

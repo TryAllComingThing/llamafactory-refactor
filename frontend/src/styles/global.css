@@ -152,6 +152,14 @@ a:hover {
   height: 18px !important;
 }
 
+.n-checkbox {
+  --n-label-padding: 0px;
+}
+
+.n-checkbox__label {
+  margin-left: 18px !important;
+}
+
 /* Narrow screen hint */
 .narrow-screen-hint {
   display: none;

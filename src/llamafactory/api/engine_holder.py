@@ -129,7 +129,7 @@ class ApiRunner:
                 cutoff_len=_g("cutoff_len"),
                 learning_rate=float(_g("learning_rate", 5e-5)),
                 num_train_epochs=float(_g("num_train_epochs", 3.0)),
-                max_samples=int(_g("max_samples", 0)),
+                max_samples=int(max_samples_val) if (max_samples_val := _g("max_samples")) else None,
                 per_device_train_batch_size=_g("batch_size", 2),
                 gradient_accumulation_steps=_g("gradient_accumulation_steps", 4),
                 lr_scheduler_type=_g("lr_scheduler_type", "cosine"),
@@ -308,7 +308,7 @@ class ApiRunner:
                 dataset_dir=_g("dataset_dir"),
                 eval_dataset=",".join(_g("dataset", [])),
                 cutoff_len=_g("cutoff_len", 1024),
-                max_samples=int(_g("max_samples", 0)),
+                max_samples=int(max_samples_val) if (max_samples_val := _g("max_samples")) else None,
                 per_device_eval_batch_size=_g("batch_size", 2),
                 predict_with_generate=True,
                 report_to="none",
@@ -606,7 +606,6 @@ class ApiRunner:
         self.trainer = None
         self.aborted = False
         self.running = False
-        self.current_run_id = None
         self._output_path = None
         torch_gc()
 

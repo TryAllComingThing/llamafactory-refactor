@@ -507,6 +507,8 @@ const dsStageOptions = [
 function buildTrainParams(): Record<string, unknown> {
   return {
     ...store.toParams(),
+    output_dir: outputDir.value,
+    config_path: configPath.value,
     model_name: session.modelName,
     model_path: session.modelPath,
     finetuning_type: session.finetuningType,
@@ -566,14 +568,14 @@ async function handlePreview(): Promise<void> {
 async function handleAbort(): Promise<void> {
   try {
     await abortTrain();
-    runId.value = "";
-    session.trainRunId = "";
-    session.persistToCache();
-    statusText.value = t("training_aborted");
-    message.info(t("abort_sent"));
   } catch {
-    message.error(t("operation_failed"));
+    // Even if server says nothing is running, clear local state
   }
+  runId.value = "";
+  session.trainRunId = "";
+  session.persistToCache();
+  statusText.value = t("training_aborted");
+  message.info(t("abort_sent"));
 }
 
 async function handleSave(): Promise<void> {

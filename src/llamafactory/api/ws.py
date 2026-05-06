@@ -41,6 +41,16 @@ async def handle_train_ws(websocket: WebSocket, run_id: str) -> None:
         await websocket.close()
         return
 
+    # If training already finished, send completion and close
+    if not engine_holder.runner.running:
+        await websocket.send_json({
+            "type": "train:complete",
+            "status": "success",
+            "message": "Training already completed.",
+        })
+        await websocket.close()
+        return
+
     # Create a dedicated queue for this client
     queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
     engine_holder.runner.register_ws_queue(queue)
