@@ -1,5 +1,14 @@
 import { postJson } from "./client";
 
-export async function exportModel(params: Record<string, unknown>): Promise<{ run_id: string }> {
-  return postJson<{ run_id: string }>("/export", params);
+export interface ExportStartResult {
+  run_id: string;
+  output_dir: string;
+}
+
+export async function startExport(params: Record<string, unknown>): Promise<ExportStartResult> {
+  return postJson<ExportStartResult>("/export/start", params);
+}
+
+export async function abortExport(): Promise<void> {
+  return postJson<void>("/export/abort");
 }

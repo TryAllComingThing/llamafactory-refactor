@@ -1,4 +1,5 @@
-import { getJson, postJson } from "./client";
+import { apiClient, getJson, postJson } from "./client";
+import type { ApiResponse } from "@/types/api";
 
 export interface TrainPreview {
   command: string[];
@@ -21,8 +22,9 @@ export async function startTrain(params: Record<string, unknown>): Promise<{ run
   return postJson<{ run_id: string }>("/train/start", params);
 }
 
-export async function abortTrain(): Promise<void> {
-  return postJson<void>("/train/abort");
+export async function abortTrain(): Promise<string> {
+  const res = await apiClient<ApiResponse<null>>("/train/abort", { method: "POST" });
+  return res.message ?? "";
 }
 
 export async function fetchTrainStatus(): Promise<TrainStatus> {

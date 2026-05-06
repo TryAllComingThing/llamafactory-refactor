@@ -1,60 +1,87 @@
 <template>
   <div class="dataset-preview">
-    <n-space vertical size="small">
-      <n-space justify="space-between" align="center">
-        <n-form-item :label="$t('dataset')">
-          <n-select
-            v-model:value="selectedDataset"
-            :options="datasetOptions"
-            filterable
-          :placeholder="$t('dataset_select_placeholder')"
-            style="min-width: 240px"
-            @update:value="handleDatasetChange"
-          />
-        </n-form-item>
-        <n-button size="small" @click="handleRefresh" :loading="loading">
-          {{ $t('dataset_refresh') }}
-        </n-button>
-      </n-space>
-
-      <n-data-table
-        v-if="samples.length > 0"
-        :columns="columns"
-        :data="samples"
-        :pagination="pagination"
-        :bordered="false"
-        :single-line="false"
-        size="small"
+    <div class="preview-toolbar">
+      <n-select
+        v-model:value="selectedDataset"
+        :options="datasetOptions"
+        filterable
+        :placeholder="$t('dataset_select_placeholder')"
+        size="tiny"
+        class="toolbar-select"
+        @update:value="handleDatasetChange"
       />
+      <span class="preview-count">{{ $t('dataset') }}: {{ totalSamples }}</span>
+      <n-button size="tiny" @click="handlePrev" :disabled="currentPage <= 1">
+        {{ $t('prev_btn') }}
+      </n-button>
+      <n-button size="tiny" @click="handleNext" :disabled="currentPage * pageSize >= totalSamples">
+        {{ $t('next_btn') }}
+      </n-button>
+      <n-button size="tiny" @click="handleRefresh" :loading="loading">
+        {{ $t('dataset_refresh') }}
+      </n-button>
+      <n-button size="tiny" @click="$emit('close')">
+        {{ $t('close_btn') }}
+      </n-button>
+    </div>
 
-      <n-empty v-else :description="$t('dataset_empty_desc')" />
-    </n-space>
+    <n-data-table
+      v-if="samples.length > 0"
+      :columns="columns"
+      :data="samples"
+      :bordered="false"
+      :single-line="false"
+      size="tiny"
+      max-height="400"
+      class="preview-table"
+    />
+
+    <n-empty v-else :description="$t('dataset_empty_desc')" size="tiny" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from "vue";
+import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { getJson } from "@/api/client";
 import type { DataTableColumn } from "naive-ui";
 
 const { t } = useI18n();
 
+const props = defineProps<{
+  dataset: string[];
+  datasetDir: string;
+}>();
+
+defineEmits<{
+  close: [];
+}>();
+
+interface PreviewResult {
+  total: number;
+  page: number;
+  page_size: number;
+  samples: Record<string, unknown>[];
+}
+
 const selectedDataset = ref<string | null>(null);
 const loading = ref(false);
 const samples = ref<Record<string, unknown>[]>([]);
+const totalSamples = ref(0);
+const currentPage = ref(1);
+const pageSize = ref(10);
 
-const datasetOptions = [
-  { label: "alpaca_zh", value: "alpaca_zh" },
-  { label: "alpaca_en", value: "alpaca_en" },
-  { label: "identity", value: "identity" },
-];
+const datasetOptions = computed(() =>
+  props.dataset.map((d) => ({ label: d, value: d }))
+);
 
-const pagination = reactive({
-  page: 1,
-  pageSize: 10,
-  pageSizes: [5, 10, 20, 50],
-  showSizePicker: true,
-});
+// Auto-select first dataset and load preview on mount
+watch(datasetOptions, (opts) => {
+  if (opts.length > 0 && !selectedDataset.value) {
+    selectedDataset.value = opts[0].value;
+    fetchData();
+  }
+}, { immediate: true });
 
 const columns: DataTableColumn[] = [
   { title: t("dataset_col_index"), key: "index", width: 60 },
@@ -63,39 +90,82 @@ const columns: DataTableColumn[] = [
   { title: t("dataset_col_output"), key: "output", ellipsis: { tooltip: true } },
 ];
 
-async function handleDatasetChange(_value: string): Promise<void> {
+async function fetchData(): Promise<void> {
+  if (!selectedDataset.value) return;
   loading.value = true;
   try {
-    // TODO: 接入真实数据集 API，当前为 mock 数据
-    const mockData = generateMockData(_value);
-    samples.value = mockData;
+    const data = await getJson<PreviewResult>("/datasets/preview", {
+      dataset: selectedDataset.value,
+      dataset_dir: props.datasetDir,
+      page: currentPage.value,
+      page_size: pageSize.value,
+    });
+    totalSamples.value = data.total;
+    samples.value = data.samples.map((s: Record<string, unknown>, i: number) => ({
+      index: (currentPage.value - 1) * pageSize.value + i + 1,
+      ...s,
+    }));
+  } catch {
+    samples.value = [];
+    totalSamples.value = 0;
   } finally {
     loading.value = false;
   }
 }
 
+function handleDatasetChange(_dataset: string): void {
+  currentPage.value = 1;
+  fetchData();
+}
+
 function handleRefresh(): void {
-  if (selectedDataset.value) {
-    handleDatasetChange(selectedDataset.value);
+  fetchData();
+}
+
+function handlePrev(): void {
+  if (currentPage.value > 1) {
+    currentPage.value--;
+    fetchData();
   }
 }
 
-function generateMockData(dataset: string): Record<string, unknown>[] {
-  const result: Record<string, unknown>[] = [];
-  for (let i = 0; i < 46; i++) {
-    result.push({
-      index: i + 1,
-      instruction: `${dataset} 样本 ${i + 1} 的指令内容`,
-      input: i % 3 === 0 ? `输入参数示例 #${i + 1}` : "",
-      output: `这是数据集 ${dataset} 的第 ${i + 1} 条生成结果`,
-    });
+function handleNext(): void {
+  if (currentPage.value * pageSize.value < totalSamples.value) {
+    currentPage.value++;
+    fetchData();
   }
-  return result;
 }
 </script>
 
 <style scoped>
 .dataset-preview {
-  padding: var(--spacing-3) 0;
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-4);
+}
+
+.preview-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--spacing-3);
+}
+
+.toolbar-select {
+  flex: 1;
+}
+
+.preview-count {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.preview-table {
+  margin-top: var(--spacing-3);
+}
+
+.preview-table :deep(.n-ellipsis) {
+  font-size: var(--font-size-base);
 }
 </style>

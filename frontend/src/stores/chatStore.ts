@@ -7,6 +7,25 @@ export const useChatStore = defineStore("chat", () => {
   const streamingResponse = ref("");
   const modelLoaded = ref(false);
 
+  // Inference config
+  const inferBackend = ref("huggingface");
+  const inferDtype = ref("auto");
+  const extraArgs = ref('{"vllm_enforce_eager": true}');
+  const infoText = ref("");
+
+  // Chat parameters
+  const maxNewTokens = ref(1024);
+  const topP = ref(0.7);
+  const temperature = ref(0.95);
+  const skipSpecialTokens = ref(true);
+  const escapeHtml = ref(true);
+  const enableThinking = ref(true);
+
+  // Role / system / tools
+  const role = ref("user");
+  const systemPrompt = ref("");
+  const tools = ref("");
+
   function addMessage(msg: ChatMessage): void {
     messages.value.push(msg);
   }
@@ -38,6 +57,19 @@ export const useChatStore = defineStore("chat", () => {
     messages,
     streamingResponse,
     modelLoaded,
+    inferBackend,
+    inferDtype,
+    extraArgs,
+    infoText,
+    maxNewTokens,
+    topP,
+    temperature,
+    skipSpecialTokens,
+    escapeHtml,
+    enableThinking,
+    role,
+    systemPrompt,
+    tools,
     addMessage,
     appendToken,
     finalizeResponse,

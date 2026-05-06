@@ -30,18 +30,3 @@ export async function postJson<T>(
     (res) => unwrapData(res, url),
   );
 }
-
-export async function putJson<T>(
-  url: string,
-  body?: Record<string, unknown>,
-): Promise<T> {
-  return apiClient<ApiResponse<T>>(url, { method: "PUT", body }).then(
-    (res) => unwrapData(res, url),
-  );
-}
-
-export async function delJson<T>(url: string): Promise<T> {
-  return apiClient<ApiResponse<T>>(url, { method: "DELETE" }).then(
-    (res) => unwrapData(res, url),
-  );
-}

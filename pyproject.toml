@@ -78,6 +78,7 @@ dependencies = [
 [project.scripts]
 llamafactory-cli = "llamafactory.cli:main"
 lmf = "llamafactory.cli:main"
+llamafactory-api = "llamafactory.api.app:run_management_api"
 
 [project.urls]
 Homepage = "https://github.com/hiyouga/LLaMA-Factory"

@@ -1,7 +1,7 @@
 <template>
   <n-space>
     <n-button
-      size="small"
+      size="tiny"
       :type="chat.modelLoaded ? 'warning' : 'primary'"
       :loading="loading"
       @click="handleToggle"
@@ -34,7 +34,14 @@ async function handleToggle(): Promise<void> {
       chat.clearMessages();
       message.success(t("model_unloaded"));
     } else {
-      await apiLoadModel(session.modelName);
+      await apiLoadModel({
+        model_name: session.modelName,
+        model_path: session.modelPath,
+        finetuning_type: session.finetuningType,
+        template: session.template,
+        quantized_bit: session.quantizationBit,
+        checkpoint_path: session.checkpointPath,
+      });
       chat.setModelLoaded(true);
       message.success(t("model_loaded_success"));
     }

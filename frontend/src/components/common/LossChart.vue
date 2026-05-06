@@ -26,7 +26,7 @@ let chart: echarts.ECharts | null = null;
 const resizeHandler = () => chart?.resize();
 
 function initChart(): void {
-  if (!chartRef.value) return;
+  if (!chartRef.value || props.data.length === 0) return;
   chart = echarts.init(chartRef.value);
   updateChart();
 }
@@ -71,7 +71,10 @@ function updateChart(): void {
 
 watch(
   () => props.data,
-  () => updateChart(),
+  () => {
+    if (!chart && props.data.length > 0) initChart();
+    else updateChart();
+  },
   { deep: true },
 );
 

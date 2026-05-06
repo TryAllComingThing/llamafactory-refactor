@@ -22,15 +22,6 @@ export interface WsMessage {
   [key: string]: unknown;
 }
 
-export interface WsTrainProgress extends WsMessage {
-  type: "train:progress";
-  progress: number;
-  current_step: number;
-  total_steps: number;
-  loss: number;
-  log: string;
-}
-
 export interface WsTrainMonitorProgress extends WsMessage {
   type: "progress";
   percentage: number;
@@ -65,4 +56,26 @@ export interface WsChatToken extends WsMessage {
 export interface WsChatDone extends WsMessage {
   type: "chat:done";
   full_text: string;
+}
+
+export interface WsChatError extends WsMessage {
+  type: "chat:error";
+  message: string;
+}
+
+export interface WsChatSend extends WsMessage {
+  type: "chat:send";
+  messages: { role: string; content: string }[];
+  system?: string;
+  tools?: string;
+  max_new_tokens?: number;
+  top_p?: number;
+  temperature?: number;
+  skip_special_tokens?: boolean;
+  escape_html?: boolean;
+  enable_thinking?: boolean;
+}
+
+export interface WsPing extends WsMessage {
+  type: "ping";
 }

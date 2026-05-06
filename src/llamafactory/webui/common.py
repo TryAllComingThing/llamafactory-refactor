@@ -36,10 +36,12 @@ from ..extras.misc import use_modelscope, use_openmind
 
 logger = logging.get_logger(__name__)
 
-DEFAULT_CACHE_DIR = "llamaboard_cache"
-DEFAULT_CONFIG_DIR = "llamaboard_config"
-DEFAULT_DATA_DIR = "data"
-DEFAULT_SAVE_DIR = "saves"
+_PROJECT_ROOT = "/Users/kyle/Documents/LLMSource/llamafactory-refactor"
+
+DEFAULT_CACHE_DIR = os.path.join(_PROJECT_ROOT, "llamaboard_cache")
+DEFAULT_CONFIG_DIR = os.path.join(_PROJECT_ROOT, "llamaboard_config")
+DEFAULT_DATA_DIR = os.path.join(_PROJECT_ROOT, "data")
+DEFAULT_SAVE_DIR = os.path.join(_PROJECT_ROOT, "saves")
 USER_CONFIG = "user_config.yaml"
 
 

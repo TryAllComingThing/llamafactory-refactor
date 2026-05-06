@@ -146,7 +146,7 @@ class Runner:
             cutoff_len=get("train.cutoff_len"),
             learning_rate=float(get("train.learning_rate")),
             num_train_epochs=float(get("train.num_train_epochs")),
-            max_samples=int(get("train.max_samples")),
+            max_samples=int(get("train.max_samples")) if get("train.max_samples") else None,
             per_device_train_batch_size=get("train.batch_size"),
             gradient_accumulation_steps=get("train.gradient_accumulation_steps"),
             lr_scheduler_type=get("train.lr_scheduler_type"),
@@ -188,7 +188,7 @@ class Runner:
                 args["model_name_or_path"] = get_save_dir(model_name, finetuning_type, get("top.checkpoint_path"))
 
         # quantization
-        if get("top.quantization_bit") != "none":
+        if get("top.quantization_bit") and get("top.quantization_bit") != "none":
             args["quantization_bit"] = int(get("top.quantization_bit"))
             args["quantization_method"] = get("top.quantization_method")
             args["double_quantization"] = not is_torch_npu_available()
@@ -336,7 +336,7 @@ class Runner:
                 args["model_name_or_path"] = get_save_dir(model_name, finetuning_type, get("top.checkpoint_path"))
 
         # quantization
-        if get("top.quantization_bit") != "none":
+        if get("top.quantization_bit") and get("top.quantization_bit") != "none":
             args["quantization_bit"] = int(get("top.quantization_bit"))
             args["quantization_method"] = get("top.quantization_method")
             args["double_quantization"] = not is_torch_npu_available()

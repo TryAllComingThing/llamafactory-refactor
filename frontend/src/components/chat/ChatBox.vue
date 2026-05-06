@@ -1,14 +1,41 @@
 <template>
-  <n-card :title="$t('chat_title')" class="chat-card">
-    <template #header-extra>
-      <n-space>
-        <ModelControl />
-        <n-button size="small" @click="handleClear">
-          {{ $t('clear_chat') }}
-        </n-button>
-      </n-space>
-    </template>
+  <div class="chat-container">
+    <!-- Role / System / Tools / Multimodal inputs -->
+    <div class="chat-config">
+      <n-grid :cols="4" :x-gap="8" :y-gap="6">
+        <n-grid-item>
+          <n-form-item :label="$t('role')" label-placement="top" size="tiny">
+            <n-select v-model:value="chat.role" :options="roleOptions" size="tiny" />
+          </n-form-item>
+        </n-grid-item>
+        <n-grid-item>
+          <n-form-item :label="$t('system')" label-placement="top" size="tiny">
+            <n-input v-model:value="chat.systemPrompt" :placeholder="$t('optional')" size="tiny" />
+          </n-form-item>
+        </n-grid-item>
+        <n-grid-item>
+          <n-form-item :label="$t('tools')" label-placement="top" size="tiny">
+            <n-input v-model:value="chat.tools" type="textarea" :rows="2" :placeholder="$t('optional')" size="tiny" />
+          </n-form-item>
+        </n-grid-item>
+        <n-grid-item>
+          <n-form-item :label="$t('mm_box')" label-placement="top" size="tiny">
+            <n-tabs size="tiny" type="segment" default-value="image">
+              <n-tab-pane name="image" :tab="$t('image')">
+                <n-button size="tiny" :disabled="!chat.modelLoaded" @click="handleUploadImage">
+                  {{ $t('upload_image') }}
+                </n-button>
+              </n-tab-pane>
+              <n-tab-pane name="video" :tab="$t('video')">
+                <span class="pending-label">{{ $t('video') }} (API pending)</span>
+              </n-tab-pane>
+            </n-tabs>
+          </n-form-item>
+        </n-grid-item>
+      </n-grid>
+    </div>
 
+    <!-- Messages -->
     <div class="chat-messages" ref="messagesRef">
       <div
         v-for="(msg, i) in chat.messages"
@@ -27,60 +54,42 @@
             :alt="$t('upload_image')"
           />
         </div>
-        <div class="message-content">{{ msg.content }}</div>
+        <div class="message-content" v-html="msg.content"></div>
       </div>
 
       <div v-if="chat.streamingResponse" class="message message--assistant">
         <div class="message-label">{{ $t('chat_assistant') }}</div>
-        <div class="message-content streaming">{{ chat.streamingResponse }}</div>
+        <div class="message-content streaming" v-html="chat.streamingResponse"></div>
       </div>
     </div>
 
-    <template #footer>
-      <div class="input-area">
-        <div v-if="previewImages.length" class="image-preview-bar">
-          <div v-for="(url, i) in previewImages" :key="i" class="image-preview-item">
-            <img :src="url" :alt="$t('upload_image')" />
-            <n-button
-              size="tiny"
-              circle
-              quaternary
-              class="image-remove"
-              @click="removeImage(i)"
-            >
-              ✕
-            </n-button>
-          </div>
+    <!-- Input area -->
+    <div class="input-area">
+      <div v-if="previewImages.length" class="image-preview-bar">
+        <div v-for="(url, i) in previewImages" :key="i" class="image-preview-item">
+          <img :src="url" :alt="$t('upload_image')" />
+          <n-button size="tiny" circle quaternary class="image-remove" @click="removeImage(i)">✕</n-button>
         </div>
-        <n-input-group>
-          <n-button :disabled="!chat.modelLoaded" @click="handleUploadImage">
-            <template #icon>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-            </template>
-          </n-button>
-          <n-input
-            v-model:value="inputText"
-            type="textarea"
-            :rows="2"
-            :placeholder="$t('chat_input_placeholder')"
-            :disabled="!chat.modelLoaded"
-            @keydown.ctrl.enter="handleSend"
-          />
-          <n-button
-            type="primary"
-            :disabled="!chat.modelLoaded || !inputText.trim()"
-            @click="handleSend"
-          >
-            {{ $t('send') }}
-          </n-button>
-        </n-input-group>
       </div>
-    </template>
-  </n-card>
+      <n-input-group>
+        <n-input
+          v-model:value="inputText"
+          type="textarea"
+          :rows="3"
+          :placeholder="$t('chat_input_placeholder')"
+          :disabled="!chat.modelLoaded"
+          @keydown.ctrl.enter="handleSend"
+        />
+        <n-button
+          type="primary"
+          :disabled="!chat.modelLoaded || !inputText.trim()"
+          @click="handleSend"
+        >
+          {{ $t('send') }}
+        </n-button>
+      </n-input-group>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -88,7 +97,8 @@ import { ref, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useMessage } from "naive-ui";
 import { useChatStore } from "@/stores/chatStore";
-import ModelControl from "@/components/chat/ModelControl.vue";
+import { streamChat } from "@/api/chat";
+import type { ChatMessage } from "@/api/chat";
 
 const { t } = useI18n();
 const chat = useChatStore();
@@ -96,7 +106,12 @@ const message = useMessage();
 const inputText = ref("");
 const messagesRef = ref<HTMLElement | null>(null);
 const previewImages = ref<string[]>([]);
-let intervalId: ReturnType<typeof setInterval> | null = null;
+let closeWs: (() => void) | null = null;
+
+const roleOptions = [
+  { label: "User", value: "user" },
+  { label: "Observation", value: "observation" },
+];
 
 function handleUploadImage(): void {
   if (previewImages.value.length >= 5) {
@@ -112,55 +127,84 @@ function removeImage(index: number): void {
 }
 
 function handleSend(): void {
-  if (!inputText.value.trim()) return;
+  if (!inputText.value.trim() || !chat.modelLoaded) return;
 
-  // 清除前一次未完成的流式回复
-  if (intervalId !== null) {
-    clearInterval(intervalId);
-    intervalId = null;
+  // Cancel previous stream if active
+  if (closeWs !== null) {
+    closeWs();
+    closeWs = null;
+    chat.finalizeResponse();
   }
+
+  const content = inputText.value;
+  inputText.value = "";
 
   chat.addMessage({
     role: "user",
-    content: inputText.value,
+    content,
     files: previewImages.value.length > 0 ? [...previewImages.value] : undefined,
   });
   previewImages.value = [];
-  const text = inputText.value;
-  inputText.value = "";
 
-  chat.setModelLoaded(true);
-  // TODO: 接入 WebSocket 流式回复，当前为 mock 逐字输出
-  const response = `这是对"${text}"的模拟回复。待 WebSocket 流式接入后，此处将显示实时生成的回复内容。`;
-  let i = 0;
-  intervalId = setInterval(() => {
-    if (i < response.length) {
-      chat.appendToken(response[i]);
-      i++;
-    } else {
-      clearInterval(intervalId!);
-      intervalId = null;
-      chat.finalizeResponse();
-    }
-  }, 30);
+  const apiMessages: ChatMessage[] = chat.messages.map((m) => ({
+    role: m.role === "user" ? "user" : "assistant",
+    content: m.content,
+  }));
+  // Before the last user message was added, we need to use the role from config
+  const lastIdx = apiMessages.length - 1;
+  if (lastIdx >= 0) {
+    apiMessages[lastIdx] = { role: chat.role as "user" | "assistant", content };
+  }
+
+  closeWs = streamChat(
+    {
+      messages: apiMessages,
+      system: chat.systemPrompt || undefined,
+      tools: chat.tools || undefined,
+      max_new_tokens: chat.maxNewTokens,
+      top_p: chat.topP,
+      temperature: chat.temperature,
+    },
+    {
+      onToken: (text: string) => {
+        chat.appendToken(text);
+      },
+      onDone: () => {
+        closeWs = null;
+        chat.finalizeResponse();
+      },
+      onError: (err: string) => {
+        closeWs = null;
+        chat.finalizeResponse();
+        message.error(err);
+      },
+    },
+  );
 }
 
 function handleClear(): void {
-  if (intervalId !== null) {
-    clearInterval(intervalId);
-    intervalId = null;
+  if (closeWs !== null) {
+    closeWs();
+    closeWs = null;
   }
   chat.clearMessages();
 }
 
 onUnmounted(() => {
-  if (intervalId) clearInterval(intervalId);
+  if (closeWs) closeWs();
+});
+
+defineExpose({
+  handleClear,
 });
 </script>
 
 <style scoped>
-.chat-card {
-  min-height: 500px;
+.chat-container {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-surface);
 }
 
 .chat-messages {
@@ -229,6 +273,9 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-2);
+  padding: var(--spacing-3);
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-default);
 }
 
 .image-preview-bar {

@@ -12,6 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+r"""FastAPI applications for LLaMA Factory.
+
+Contains two separate apps:
+  1. OpenAI-compatible API (create_app / run_api) - existing API for chat completions
+  2. Management API (create_management_app / run_management_api) - backend for the Vue3 frontend
+"""
+
 import asyncio
 import os
 from contextlib import asynccontextmanager
@@ -38,7 +45,7 @@ from .protocol import (
 
 
 if is_fastapi_available():
-    from fastapi import Depends, FastAPI, HTTPException, status
+    from fastapi import Depends, FastAPI, HTTPException, WebSocket, status
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -130,4 +137,82 @@ def run_api() -> None:
     api_host = os.getenv("API_HOST", "0.0.0.0")
     api_port = int(os.getenv("API_PORT", "8000"))
     print(f"Visit http://localhost:{api_port}/docs for API document.")
+    uvicorn.run(app, host=api_host, port=api_port)
+
+
+# ---------------------------------------------------------------------------
+# Management API (backend for Vue3 frontend)
+# ---------------------------------------------------------------------------
+
+
+def _management_exception_handler(request, exc):
+    r"""Format all HTTPExceptions as {success: false, message: ...}."""
+    from fastapi.responses import JSONResponse
+
+    detail = exc.detail
+    if isinstance(detail, dict):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=detail,
+        )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"success": False, "message": str(detail)},
+    )
+
+
+def _unhandled_exception_handler(request, exc):
+    r"""Catch unhandled exceptions and return consistent error format."""
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=500,
+        content={"success": False, "message": f"Internal server error: {str(exc)}"},
+    )
+
+
+def create_management_app() -> "FastAPI":
+    r"""Create the FastAPI app for the management API (backend for Vue3 frontend)."""
+    from .routes import router as api_router
+    from .ws import handle_chat_ws, handle_train_ws
+
+    app = FastAPI(title="LLaMA Factory Management API")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Custom exception handlers for consistent error response format
+    app.add_exception_handler(HTTPException, _management_exception_handler)
+    app.add_exception_handler(Exception, _unhandled_exception_handler)
+
+    # Mount REST routes
+    app.include_router(api_router, prefix="/api")
+
+    # WebSocket endpoints
+    @app.websocket("/ws/train/{run_id}")
+    async def train_websocket(websocket: WebSocket, run_id: str):
+        await handle_train_ws(websocket, run_id)
+
+    @app.websocket("/ws/chat")
+    async def chat_websocket(websocket: WebSocket):
+        await handle_chat_ws(websocket)
+
+    @app.get("/health")
+    async def health_check():
+        return {"status": "ok"}
+
+    return app
+
+
+def run_management_api() -> None:
+    r"""Launch the management API server."""
+    app = create_management_app()
+    api_host = os.getenv("MGMT_API_HOST", "0.0.0.0")
+    api_port = int(os.getenv("MGMT_API_PORT", "8001"))
+    print(f"Management API running at http://localhost:{api_port}")
+    print(f"API docs at http://localhost:{api_port}/docs")
     uvicorn.run(app, host=api_host, port=api_port)

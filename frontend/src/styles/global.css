@@ -53,6 +53,105 @@ a:hover {
   border-radius: var(--radius-full);
 }
 
+/* Unified UI font: 10px structural / 12px interactive */
+.n-input--tiny .n-input__input-el,
+.n-base-selection--tiny .n-base-selection-label,
+.n-base-selection--tiny .n-tag,
+.n-base-select-menu .n-base-select-option,
+.n-checkbox__label,
+.n-tag__content {
+  font-size: 11px;
+}
+
+.n-input-wrapper .n-input__suffix,
+.n-input-wrapper .n-input__suffix svg {
+  color: var(--text-tertiary);
+}
+
+/* Form labels — subtle, smaller than section headers */
+.n-form-item--tiny-size .n-form-item-label__text {
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  letter-spacing: 0.08em;
+}
+
+/* Section labels — shared across all content views */
+.section-label,
+.section-title {
+  display: block;
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--spacing-2);
+}
+
+.form-section {
+  margin-bottom: var(--spacing-4);
+}
+
+.dataset-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.dataset-select {
+  flex: 1;
+}
+
+/* Switch — compact size */
+.n-switch--small .n-switch__rail {
+  height: 12px;
+  min-width: 26px;
+}
+
+.n-switch--small .n-switch__button {
+  height: 10px;
+  width: 10px;
+}
+
+/* Divider — compact */
+.n-divider {
+  margin: var(--spacing-2) 0;
+}
+
+.n-divider .n-divider__title {
+  font-size: 11px;
+}
+
+/* Data table — compact font */
+.n-data-table--tiny .n-data-table-tbody,
+.n-data-table--tiny .n-data-table-tr,
+.n-data-table--tiny .n-data-table-td,
+.n-data-table--tiny .n-data-table-td .n-ellipsis,
+.n-data-table--tiny .n-data-table-th {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.n-data-table-th__title,
+.n-data-table-th__title .n-ellipsis {
+  font-size: 10px;
+}
+
+/* Popover — lighter background, smaller font */
+.n-popover-shared {
+  --n-color: var(--bg-elevated);
+  --n-text-color: var(--text-tertiary);
+  --n-font-size: 9px;
+}
+
+/* Input number — suppress +/- button prominence */
+.n-input-number--tiny .n-button {
+  opacity: 0.65;
+}
+
+/* Larger checkbox for better usability */
+.n-checkbox .n-checkbox-box {
+  width: 18px !important;
+  height: 18px !important;
+}
+
 /* Narrow screen hint */
 .narrow-screen-hint {
   display: none;

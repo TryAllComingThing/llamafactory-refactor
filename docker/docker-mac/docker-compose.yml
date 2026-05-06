@@ -1,0 +1,20 @@
+services:
+  llamafactory:
+    platform: linux/amd64  # 👈 添加强制平台选项
+    image: hiyouga/llamafactory:latest
+    container_name: llamafactory
+    ports:
+      - "7860:7860"
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./output:/app/output
+      - ./cache:/root/.cache
+    environment:
+      - GRADIO_SERVER_NAME=0.0.0.0
+      - GRADIO_SERVER_PORT=7860
+      - USE_MODELSCOPE_HUB=1
+    command: llamafactory-cli webui
+    restart: unless-stopped
+    stdin_open: true
+    tty: true

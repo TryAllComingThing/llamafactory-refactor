@@ -1,13 +1,12 @@
 <template>
-  <n-card :title="$t('train_monitor_title')" class="train-monitor-card">
-    <n-space vertical size="medium">
-      <!-- Status bar -->
+  <div class="train-monitor">
+    <div class="monitor-header">
       <n-space justify="space-between" align="center">
         <n-tag :type="statusTagType" size="small">{{ statusText }}</n-tag>
         <n-space size="small">
           <n-button
             v-if="isRunning"
-            size="small"
+            size="tiny"
             type="warning"
             @click="handleAbort"
           >
@@ -15,14 +14,16 @@
           </n-button>
           <n-button
             v-if="hasData"
-            size="small"
+            size="tiny"
             @click="handleClear"
           >
             {{ $t('clear_btn') }}
           </n-button>
         </n-space>
       </n-space>
+    </div>
 
+    <div class="monitor-content">
       <!-- Progress bar -->
       <div class="progress-section">
         <n-progress
@@ -69,23 +70,35 @@
           </div>
         </div>
       </div>
-    </n-space>
-  </n-card>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from "vue";
+import { ref, computed, watch, onUnmounted, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
+import { useMessage } from "naive-ui";
+import { wsManager } from "@/api/ws-manager";
+import { abortTrain } from "@/api/train";
+import type {
+  WsTrainMonitorProgress,
+  WsTrainMonitorLog,
+  WsTrainMonitorLoss,
+  WsTrainComplete,
+} from "@/types/api";
 import LossChart from "@/components/common/LossChart.vue";
 
 const { t } = useI18n();
-
-// TODO: 接入 WebSocket 训练监控消息，当前 expose 方法等待外部调用
+const message = useMessage();
 
 interface LossPoint {
   step: number;
   value: number;
 }
+
+const props = defineProps<{
+  runId?: string;
+}>();
 
 const logLines = ref<string[]>([]);
 const lossData = ref<LossPoint[]>([]);
@@ -97,6 +110,84 @@ const elapsedSecs = ref(0);
 const remainingSecs = ref(0);
 const currentLoss = ref(0);
 const logRef = ref<HTMLElement | null>(null);
+
+let unsubProgress: (() => void) | null = null;
+let unsubLog: (() => void) | null = null;
+let unsubLoss: (() => void) | null = null;
+let unsubComplete: (() => void) | null = null;
+
+function connectWs(runId: string): void {
+  disconnectWs();
+  wsManager.connect(`/ws/train/${encodeURIComponent(runId)}`);
+
+  unsubProgress = wsManager.on("progress", (data) => {
+    const msg = data as unknown as WsTrainMonitorProgress;
+    percentage.value = msg.percentage;
+    current.value = msg.current;
+    total.value = msg.total;
+    elapsedSecs.value = msg.elapsed_secs;
+    remainingSecs.value = msg.remaining_secs;
+    isRunning.value = true;
+  });
+
+  unsubLog = wsManager.on("log", (data) => {
+    const msg = data as unknown as WsTrainMonitorLog;
+    logLines.value.push(msg.text);
+    if (logLines.value.length > 1000) {
+      logLines.value = logLines.value.slice(-500);
+    }
+    scrollToBottom();
+  });
+
+  unsubLoss = wsManager.on("loss", (data) => {
+    const msg = data as unknown as WsTrainMonitorLoss;
+    currentLoss.value = msg.value;
+    lossData.value.push({ step: msg.step, value: msg.value });
+    if (lossData.value.length > 10000) {
+      lossData.value = lossData.value.slice(-5000);
+    }
+  });
+
+  unsubComplete = wsManager.on("train:complete", (data) => {
+    const msg = data as unknown as WsTrainComplete;
+    isRunning.value = false;
+    if (msg.status === "success") {
+      message.success(t("training_completed"));
+    } else if (msg.status === "aborted") {
+      message.warning(t("training_aborted"));
+    } else {
+      message.error(msg.message || t("training_failed"));
+    }
+  });
+}
+
+function disconnectWs(): void {
+  unsubProgress?.();
+  unsubLog?.();
+  unsubLoss?.();
+  unsubComplete?.();
+  unsubProgress = null;
+  unsubLog = null;
+  unsubLoss = null;
+  unsubComplete = null;
+  wsManager.disconnect();
+}
+
+watch(
+  () => props.runId,
+  (newId) => {
+    if (newId) {
+      isRunning.value = true;
+      connectWs(newId);
+    } else {
+      disconnectWs();
+    }
+  },
+);
+
+onUnmounted(() => {
+  disconnectWs();
+});
 
 const hasData = computed(() => logLines.value.length > 0);
 
@@ -126,11 +217,18 @@ function scrollToBottom(): void {
   });
 }
 
-function handleAbort(): void {
-  isRunning.value = false;
+async function handleAbort(): Promise<void> {
+  try {
+    await abortTrain();
+    isRunning.value = false;
+    message.info(t("abort_sent"));
+  } catch {
+    message.error(t("operation_failed"));
+  }
 }
 
 function handleClear(): void {
+  disconnectWs();
   logLines.value = [];
   lossData.value = [];
   percentage.value = 0;
@@ -142,30 +240,6 @@ function handleClear(): void {
 }
 
 defineExpose({
-  setStatus(running: boolean): void {
-    isRunning.value = running;
-  },
-  updateProgress(fraction: number, cur: number, tot: number, elapsed: number, remaining: number): void {
-    percentage.value = Math.round(fraction * 100);
-    current.value = cur;
-    total.value = tot;
-    elapsedSecs.value = elapsed;
-    remainingSecs.value = remaining;
-  },
-  appendLog(text: string): void {
-    logLines.value.push(text);
-    if (logLines.value.length > 1000) {
-      logLines.value = logLines.value.slice(-500);
-    }
-    scrollToBottom();
-  },
-  appendLoss(step: number, value: number): void {
-    currentLoss.value = value;
-    lossData.value.push({ step, value });
-    if (lossData.value.length > 10000) {
-      lossData.value = lossData.value.slice(-5000);
-    }
-  },
   reset(): void {
     handleClear();
   },
@@ -173,20 +247,36 @@ defineExpose({
 </script>
 
 <style scoped>
-.train-monitor-card {
-  margin-top: var(--spacing-5);
+.train-monitor {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.monitor-header {
+  padding-bottom: var(--spacing-3);
+  border-bottom: 1px solid var(--border-default);
+  margin-bottom: var(--spacing-3);
+}
+
+.monitor-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  overflow-y: auto;
 }
 
 .progress-section {
-  padding: var(--spacing-3) 0;
+  padding: var(--spacing-2) 0;
 }
 
 .progress-info {
   display: flex;
   justify-content: space-between;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
-  margin-top: var(--spacing-2);
+  margin-top: var(--spacing-1);
 }
 
 .loss-display {
@@ -202,15 +292,20 @@ defineExpose({
 }
 
 .loss-value {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
   font-family: var(--font-mono);
   color: var(--color-brand);
 }
 
 .log-section {
+  flex: 1;
+  min-height: 200px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .log-header {
@@ -219,17 +314,21 @@ defineExpose({
   align-items: center;
   padding: var(--spacing-2) var(--spacing-3);
   border-bottom: 1px solid var(--border-default);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
+  background: var(--bg-elevated);
 }
 
 .log-content {
-  height: 200px;
+  flex: 1;
+  min-height: 150px;
+  max-height: 300px;
   overflow-y: auto;
   padding: var(--spacing-2) var(--spacing-3);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   line-height: 1.6;
+  background: var(--bg-surface);
 }
 
 .log-line {

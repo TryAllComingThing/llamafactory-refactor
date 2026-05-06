@@ -1,46 +1,44 @@
 <template>
-  <n-collapse-item :title="$t('swanlab_track')" name="swanlab">
-    <n-space vertical size="small">
-      <n-form-item :label="$t('use_swanlab')">
-        <n-switch v-model:value="store.form.use_swanlab" />
+  <n-form-item :label="$t('use_swanlab')" label-placement="top" size="tiny">
+    <n-switch v-model:value="store.form.use_swanlab" size="small" />
+  </n-form-item>
+  <n-grid :cols="5" :x-gap="8" :y-gap="6">
+    <n-grid-item>
+      <n-form-item :label="$t('swanlab_project')" label-placement="top" size="tiny">
+        <n-input v-model:value="store.form.swanlab_project" placeholder="llamafactory" size="tiny" />
       </n-form-item>
-      <n-grid :cols="2" :x-gap="16" :y-gap="12">
-        <n-grid-item>
-          <n-form-item :label="$t('swanlab_project')">
-            <n-input v-model:value="store.form.swanlab_project" placeholder="llamafactory" />
-          </n-form-item>
-        </n-grid-item>
-        <n-grid-item>
-          <n-form-item :label="$t('swanlab_run_name')">
-            <n-input v-model:value="store.form.swanlab_run_name" placeholder="可选" />
-          </n-form-item>
-        </n-grid-item>
-        <n-grid-item>
-          <n-form-item :label="$t('swanlab_workspace')">
-            <n-input v-model:value="store.form.swanlab_workspace" placeholder="可选" />
-          </n-form-item>
-        </n-grid-item>
-        <n-grid-item>
-          <n-form-item :label="$t('swanlab_api_key')">
-            <n-input
-              v-model:value="store.form.swanlab_api_key"
-              type="password"
-              placeholder="输入 API Key"
-              show-password-on="click"
-            />
-          </n-form-item>
-        </n-grid-item>
-        <n-grid-item>
-          <n-form-item :label="$t('swanlab_mode')">
-            <n-select
-              v-model:value="store.form.swanlab_mode"
-              :options="modeOptions"
-            />
-          </n-form-item>
-        </n-grid-item>
-      </n-grid>
-    </n-space>
-  </n-collapse-item>
+    </n-grid-item>
+    <n-grid-item>
+      <n-form-item :label="$t('swanlab_run_name')" label-placement="top" size="tiny">
+        <n-input v-model:value="store.form.swanlab_run_name" :placeholder="$t('optional')" size="tiny" />
+      </n-form-item>
+    </n-grid-item>
+    <n-grid-item>
+      <n-form-item :label="$t('swanlab_workspace')" label-placement="top" size="tiny">
+        <n-input v-model:value="store.form.swanlab_workspace" :placeholder="$t('optional')" size="tiny" />
+      </n-form-item>
+    </n-grid-item>
+    <n-grid-item>
+      <n-form-item :label="$t('swanlab_api_key')" label-placement="top" size="tiny">
+        <n-input
+          v-model:value="store.form.swanlab_api_key"
+          type="password"
+          :placeholder="$t('input_api_key')"
+          show-password-on="click"
+          size="tiny"
+        />
+      </n-form-item>
+    </n-grid-item>
+    <n-grid-item>
+      <n-form-item :label="$t('swanlab_mode')" label-placement="top" size="tiny">
+        <n-select
+          v-model:value="store.form.swanlab_mode"
+          :options="modeOptions"
+          size="tiny"
+        />
+      </n-form-item>
+    </n-grid-item>
+  </n-grid>
 </template>
 
 <script setup lang="ts">

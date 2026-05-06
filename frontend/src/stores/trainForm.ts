@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { reactive, watch } from "vue";
+import { reactive, ref, watch } from "vue";
 import { getJson } from "@/api/client";
 
 export interface TrainFormState {
@@ -12,7 +12,7 @@ export interface TrainFormState {
   max_grad_norm: string;
   compute_type: string;
   cutoff_len: number;
-  per_device_train_batch_size: number;
+  batch_size: number;
   gradient_accumulation_steps: number;
   val_size: number;
   lr_scheduler_type: string;
@@ -84,6 +84,11 @@ export interface TrainFormState {
   swanlab_workspace: string;
   swanlab_api_key: string;
   swanlab_mode: string;
+  swanlab_logdir: string;
+
+  project: string;
+  trackio_space_id: string;
+  hub_private_repo: boolean;
 
   deepspeed: string;
   ds_stage: string;
@@ -101,7 +106,7 @@ export const DEFAULT_TRAIN_FORM: TrainFormState = {
   max_grad_norm: "1.0",
   compute_type: "bf16",
   cutoff_len: 2048,
-  per_device_train_batch_size: 2,
+  batch_size: 2,
   gradient_accumulation_steps: 8,
   val_size: 0.0,
   lr_scheduler_type: "cosine",
@@ -173,6 +178,11 @@ export const DEFAULT_TRAIN_FORM: TrainFormState = {
   swanlab_workspace: "",
   swanlab_api_key: "",
   swanlab_mode: "cloud",
+  swanlab_logdir: "",
+
+  project: "huggingface",
+  trackio_space_id: "trackio",
+  hub_private_repo: false,
 
   deepspeed: "",
   ds_stage: "none",
@@ -183,21 +193,25 @@ export const DEFAULT_TRAIN_FORM: TrainFormState = {
 export const useTrainFormStore = defineStore("trainForm", () => {
   const form = reactive<TrainFormState>({ ...DEFAULT_TRAIN_FORM });
 
-  const datasetOptions = reactive<{ label: string; value: string }[]>([]);
+  const FALLBACK_DATASETS = [
+    { label: "alpaca_zh_demo", value: "alpaca_zh_demo" },
+    { label: "alpaca_en_demo", value: "alpaca_en_demo" },
+    { label: "identity", value: "identity" },
+  ];
 
-  async function fetchDatasets(stage: string): Promise<void> {
+  const datasetOptions = ref<{ label: string; value: string }[]>([...FALLBACK_DATASETS]);
+
+  async function fetchDatasets(stage: string, dir?: string): Promise<void> {
     form.dataset = [];
     try {
-      const data = await getJson<{ label: string; value: string }[]>("/datasets", { stage });
-      datasetOptions.length = 0;
-      datasetOptions.push(...data);
+      const params: Record<string, string> = { stage, format: "select" };
+      if (dir) params.dir = dir;
+      const data = await getJson<{ label: string; value: string }[]>("/datasets", params);
+      if (data.length > 0) {
+        datasetOptions.value = data;
+      }
     } catch {
-      datasetOptions.length = 0;
-      datasetOptions.push(
-        { label: "alpaca_zh", value: "alpaca_zh" },
-        { label: "alpaca_en", value: "alpaca_en" },
-        { label: "identity", value: "identity" },
-      );
+      // keep fallback values
     }
   }
 
@@ -205,9 +219,17 @@ export const useTrainFormStore = defineStore("trainForm", () => {
   watch(
     () => form.training_stage,
     (stage) => {
-      fetchDatasets(stage);
+      fetchDatasets(stage, form.dataset_dir);
     },
     { immediate: true },
+  );
+
+  // 级联：dataset_dir 变化 → 重新加载数据集
+  watch(
+    () => form.dataset_dir,
+    (dir) => {
+      fetchDatasets(form.training_stage, dir);
+    },
   );
 
   function updateFields(fields: Partial<TrainFormState>): void {
